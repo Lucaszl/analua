@@ -50,7 +50,7 @@ const Icon = {
 window.Icon = Icon;
 
 // ─── HEADER ─────────────────────────────────────────────────────────────────
-function Header({ route, navigate, cartCount, onOpenCart, onOpenSearch }) {
+function Header({ route, navigate, cartCount, onOpenCart, onOpenSearch, user, onOpenAuth, onOpenUserMenu }) {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -77,7 +77,14 @@ function Header({ route, navigate, cartCount, onOpenCart, onOpenSearch }) {
         <div className="header-actions">
           <a href="#" className="header-link desktop-only" onClick={(e)=>{e.preventDefault();navigate({name:'about'})}}>Sobre</a>
           <button className="icon-btn" aria-label="buscar" onClick={onOpenSearch}><Icon.search /></button>
-          <button className="icon-btn desktop-only" aria-label="conta"><Icon.user /></button>
+          {user ? (
+            <button className="icon-btn user-btn desktop-only" aria-label={'Conta de ' + (user.nome || user.email)} onClick={onOpenUserMenu} title={user.nome || user.email}>
+              <Icon.user />
+              <span className="user-btn-dot" aria-hidden="true"/>
+            </button>
+          ) : (
+            <button className="icon-btn desktop-only" aria-label="Entrar / Cadastrar" onClick={onOpenAuth}><Icon.user /></button>
+          )}
           <button className="icon-btn cart-btn" aria-label="sacola" onClick={onOpenCart}>
             <Icon.bag />
             {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
@@ -282,6 +289,237 @@ function ProductGallery({ images, name }) {
   );
 }
 window.ProductGallery = ProductGallery;
+
+// ─── AUTH (LOGIN / CADASTRO DO CLIENTE) ─────────────────────────────────────
+const AUTH_STORAGE_KEY = 'analua_customer_account';
+
+// Hash SHA-256 simples (suficiente pra esse caso — não é Fort Knox)
+async function hashPassword(password) {
+  if (!password) return '';
+  const data = new TextEncoder().encode(password + 'analua-salt-v1');
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+window.getCurrentUser = function() {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return null;
+    const u = JSON.parse(raw);
+    if (u.loggedIn) return u;
+    return null;
+  } catch(e) { return null; }
+};
+
+window.logoutUser = function() {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (raw) {
+      const u = JSON.parse(raw);
+      u.loggedIn = false;
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(u));
+    }
+  } catch(e) {}
+};
+
+function AuthModal({ open, mode, onClose, onLoggedIn }) {
+  const [tab, setTab] = useState(mode || 'login');  // 'login' | 'register'
+  const [form, setForm] = useState({
+    email:'', password:'', confirm:'',
+    nome:'', telefone:'', cep:'', cidade:''
+  });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setTab(mode || 'login');
+      setForm({ email:'', password:'', confirm:'', nome:'', telefone:'', cep:'', cidade:'' });
+      setError('');
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [open, mode]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  const set = (k,v) => setForm(prev => ({...prev, [k]: v}));
+
+  const handleLogin = async () => {
+    setError('');
+    if (!form.email || !form.password) { setError('Preencha e-mail e senha.'); return; }
+    setLoading(true);
+    try {
+      const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (!raw) {
+        setError('Conta não encontrada. Cadastre-se primeiro.');
+        setLoading(false); return;
+      }
+      const stored = JSON.parse(raw);
+      const hash = await hashPassword(form.password);
+      if (stored.email.toLowerCase() !== form.email.trim().toLowerCase() ||
+          stored.passwordHash !== hash) {
+        setError('E-mail ou senha incorretos.');
+        setLoading(false); return;
+      }
+      stored.loggedIn = true;
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(stored));
+      onLoggedIn(stored);
+    } catch(e) { setError('Erro: ' + e.message); }
+    setLoading(false);
+  };
+
+  const handleRegister = async () => {
+    setError('');
+    if (!form.nome.trim()) { setError('Preencha seu nome.'); return; }
+    if (!form.email.trim()) { setError('Preencha um e-mail.'); return; }
+    if (!form.email.includes('@')) { setError('E-mail inválido.'); return; }
+    if (form.password.length < 6) { setError('Senha precisa ter pelo menos 6 caracteres.'); return; }
+    if (form.password !== form.confirm) { setError('Senhas não conferem.'); return; }
+    setLoading(true);
+    try {
+      const hash = await hashPassword(form.password);
+      const user = {
+        email: form.email.trim().toLowerCase(),
+        nome: form.nome.trim(),
+        telefone: form.telefone.trim(),
+        cep: (form.cep || '').replace(/\D/g, ''),
+        cidade: form.cidade.trim(),
+        passwordHash: hash,
+        loggedIn: true,
+        createdAt: new Date().toISOString(),
+      };
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+      onLoggedIn(user);
+    } catch(e) { setError('Erro: ' + e.message); }
+    setLoading(false);
+  };
+
+  if (!open) return null;
+
+  return (
+    <React.Fragment>
+      <div className="auth-scrim" onClick={onClose}/>
+      <div className="auth-modal" role="dialog" aria-modal="true">
+        <button className="auth-close icon-btn" onClick={onClose} aria-label="Fechar"><Icon.close/></button>
+
+        <div className="auth-head">
+          <div className="brand-mark" style={{fontSize:24, textAlign:'center', marginBottom:6}}>ANALUA<em>&co</em></div>
+          <div className="eyebrow" style={{textAlign:'center', display:'block'}}>sua conta</div>
+        </div>
+
+        <div className="auth-tabs">
+          <button className={'auth-tab ' + (tab==='login'?'on':'')} onClick={()=>{setTab('login');setError('');}}>
+            Entrar
+          </button>
+          <button className={'auth-tab ' + (tab==='register'?'on':'')} onClick={()=>{setTab('register');setError('');}}>
+            Cadastrar
+          </button>
+        </div>
+
+        <div className="auth-body">
+          {tab === 'login' && (
+            <form onSubmit={(e)=>{e.preventDefault();handleLogin();}} className="auth-form">
+              <div className="field">
+                <label>E-mail</label>
+                <input type="email" value={form.email} onChange={(e)=>set('email',e.target.value)} autoFocus required/>
+              </div>
+              <div className="field" style={{marginTop:14}}>
+                <label>Senha</label>
+                <input type="password" value={form.password} onChange={(e)=>set('password',e.target.value)} required/>
+              </div>
+              {error && <div className="auth-error">{error}</div>}
+              <button type="submit" className="btn-primary big" disabled={loading} style={{marginTop:20}}>
+                <span>{loading ? 'Entrando...' : 'Entrar'}</span>
+                {!loading && <Icon.arrow/>}
+              </button>
+              <p className="small muted center" style={{marginTop:16, textAlign:'center'}}>
+                Sem conta? <a href="#" onClick={(e)=>{e.preventDefault();setTab('register');setError('');}} style={{textDecoration:'underline', color:'var(--wine)'}}>cadastra-se aqui</a>
+              </p>
+            </form>
+          )}
+
+          {tab === 'register' && (
+            <form onSubmit={(e)=>{e.preventDefault();handleRegister();}} className="auth-form">
+              <div className="field">
+                <label>Nome</label>
+                <input type="text" value={form.nome} onChange={(e)=>set('nome',e.target.value)} autoFocus required placeholder="Como gostaria de ser chamada?"/>
+              </div>
+              <div className="field" style={{marginTop:14}}>
+                <label>E-mail</label>
+                <input type="email" value={form.email} onChange={(e)=>set('email',e.target.value)} required/>
+              </div>
+              <div className="field" style={{marginTop:14}}>
+                <label>Senha (mínimo 6 caracteres)</label>
+                <input type="password" value={form.password} onChange={(e)=>set('password',e.target.value)} required minLength="6"/>
+              </div>
+              <div className="field" style={{marginTop:14}}>
+                <label>Confirmar senha</label>
+                <input type="password" value={form.confirm} onChange={(e)=>set('confirm',e.target.value)} required/>
+              </div>
+
+              <details style={{marginTop:14}}>
+                <summary className="small muted" style={{cursor:'pointer', textDecoration:'underline'}}>Adicionar telefone/endereço agora (opcional)</summary>
+                <div style={{marginTop:14, display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
+                  <div className="field" style={{gridColumn:'span 2'}}>
+                    <label>WhatsApp</label>
+                    <input type="text" value={form.telefone} onChange={(e)=>set('telefone',e.target.value)} placeholder="(11) 99999-9999"/>
+                  </div>
+                  <div className="field">
+                    <label>CEP</label>
+                    <input type="text" value={form.cep} onChange={(e)=>set('cep',e.target.value.replace(/\D/g,''))} placeholder="01310100" maxLength="8"/>
+                  </div>
+                  <div className="field">
+                    <label>Cidade/UF</label>
+                    <input type="text" value={form.cidade} onChange={(e)=>set('cidade',e.target.value)} placeholder="São Paulo, SP"/>
+                  </div>
+                </div>
+              </details>
+
+              {error && <div className="auth-error">{error}</div>}
+              <button type="submit" className="btn-primary big" disabled={loading} style={{marginTop:20}}>
+                <span>{loading ? 'Criando conta...' : 'Criar conta'}</span>
+                {!loading && <Icon.arrow/>}
+              </button>
+              <p className="small muted" style={{marginTop:14, lineHeight:1.5, fontSize:12, textAlign:'center'}}>
+                Sua conta fica salva nesse navegador. Pra acessar de outro dispositivo, cadastre-se de novo lá.
+              </p>
+            </form>
+          )}
+        </div>
+      </div>
+    </React.Fragment>
+  );
+}
+window.AuthModal = AuthModal;
+
+// ─── USER MENU (drop quando logado) ─────────────────────────────────────────
+function UserMenu({ open, user, onClose, onLogout, onMyOrders }) {
+  if (!open) return null;
+  return (
+    <React.Fragment>
+      <div className="user-menu-scrim" onClick={onClose}/>
+      <div className="user-menu">
+        <div className="user-menu-head">
+          <div className="eyebrow">conectada como</div>
+          <div className="user-menu-name">{user.nome || user.email}</div>
+          {user.email && user.nome && <div className="small muted">{user.email}</div>}
+        </div>
+        <button className="user-menu-item" onClick={onLogout}>
+          Sair da conta
+        </button>
+      </div>
+    </React.Fragment>
+  );
+}
+window.UserMenu = UserMenu;
 
 // ─── SEARCH OVERLAY ─────────────────────────────────────────────────────────
 function SearchOverlay({ open, products, onClose, navigate }) {

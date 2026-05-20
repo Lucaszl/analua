@@ -1194,3 +1194,159 @@ a { color: inherit; text-decoration: none; }
   .search-result-img { width: 64px; height: 80px; }
   .search-result-name { font-size: 18px; }
 }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   AUTH MODAL (login / cadastro do cliente)
+   ═════════════════════════════════════════════════════════════════════════ */
+.auth-scrim {
+  position: fixed; inset: 0; background: rgba(27, 20, 12, 0.55);
+  z-index: 90;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: authFadeIn 250ms var(--ease);
+}
+@keyframes authFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.auth-modal {
+  position: fixed; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 92%; max-width: 440px;
+  max-height: 90vh; overflow-y: auto;
+  background: var(--bg); z-index: 95;
+  padding: 36px 32px 32px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+  animation: authPopIn 280ms var(--ease);
+}
+@keyframes authPopIn {
+  from { opacity: 0; transform: translate(-50%, -45%); }
+  to   { opacity: 1; transform: translate(-50%, -50%); }
+}
+.auth-close {
+  position: absolute; top: 12px; right: 12px;
+}
+
+.auth-head {
+  margin-bottom: 24px;
+}
+
+.auth-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 24px;
+}
+.auth-tab {
+  flex: 1;
+  background: transparent; border: none;
+  padding: 12px 0;
+  font-family: var(--sans); font-size: 13px;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  font-weight: 500; color: var(--muted);
+  cursor: pointer; position: relative;
+  transition: color var(--t-fast) var(--ease);
+}
+.auth-tab:hover { color: var(--ink); }
+.auth-tab.on { color: var(--ink); }
+.auth-tab.on::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: -1px;
+  height: 2px; background: var(--ink);
+}
+
+.auth-form .field label {
+  font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); font-weight: 500;
+  margin-bottom: 4px; display: block;
+}
+.auth-form .field input {
+  background: transparent; border: none;
+  border-bottom: 1px solid var(--rule);
+  padding: 10px 0;
+  font-family: var(--sans); font-size: 15px;
+  color: var(--ink); outline: none; width: 100%;
+  transition: border-color var(--t-fast) var(--ease);
+}
+.auth-form .field input:focus { border-bottom-color: var(--ink); }
+
+.auth-error {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: rgba(110, 43, 43, 0.08);
+  border-left: 3px solid var(--wine);
+  color: var(--wine);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.auth-form details summary {
+  list-style: none;
+  outline: none;
+  user-select: none;
+}
+.auth-form details summary::-webkit-details-marker { display: none; }
+.auth-form details summary::before {
+  content: '＋';
+  margin-right: 6px;
+  font-family: var(--mono);
+  color: var(--wine);
+}
+.auth-form details[open] summary::before { content: '－'; }
+
+/* User menu (drop quando logado) */
+.user-btn { position: relative; }
+.user-btn-dot {
+  position: absolute; top: 7px; right: 7px;
+  width: 7px; height: 7px;
+  background: var(--gold);
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+}
+
+.user-menu-scrim {
+  position: fixed; inset: 0;
+  z-index: 70;
+}
+.user-menu {
+  position: fixed; top: 70px; right: 40px;
+  width: 280px;
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+  z-index: 75;
+  animation: userMenuIn 200ms var(--ease);
+}
+@keyframes userMenuIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.user-menu-head {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--rule);
+}
+.user-menu-head .eyebrow {
+  font-size: 10px; margin-bottom: 4px;
+}
+.user-menu-name {
+  font-family: var(--display);
+  font-size: 22px;
+  line-height: 1.1;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.user-menu-item {
+  display: block; width: 100%;
+  padding: 14px 20px;
+  background: transparent; border: none;
+  text-align: left;
+  font-family: var(--sans); font-size: 14px;
+  color: var(--ink); cursor: pointer;
+  transition: background var(--t-fast) var(--ease);
+}
+.user-menu-item:hover {
+  background: var(--paper);
+  color: var(--wine);
+}
+
+@media (max-width: 900px) {
+  .user-menu { right: 16px; top: 60px; }
+  .auth-modal { padding: 28px 24px 24px; }
+}

@@ -459,10 +459,14 @@ function AboutScreen({ navigate }) {
 window.AboutScreen = AboutScreen;
 
 // ─── CHECKOUT (WhatsApp flow) ───────────────────────────────────────────────
-function CheckoutScreen({ navigate, items, onSubmit }) {
-  const [form, setForm] = useStateS({
-    nome: '', telefone: '', cep: '', cidade: '', observacoes: '',
-  });
+function CheckoutScreen({ navigate, items, user, onSubmit }) {
+  const [form, setForm] = useStateS(() => ({
+    nome: user?.nome || '',
+    telefone: user?.telefone || '',
+    cep: user?.cep || '',
+    cidade: user?.cidade || '',
+    observacoes: '',
+  }));
 
   const subtotal = items.reduce((s,i)=>s+i.price*i.qty, 0);
   const freeShip = subtotal >= 499;
@@ -487,6 +491,7 @@ function CheckoutScreen({ navigate, items, onSubmit }) {
     if (freeShip) lines.push('✓ Frete grátis (acima de R$ 499)');
     lines.push('');
     if (form.nome) lines.push('Nome: ' + form.nome);
+    if (user?.email) lines.push('E-mail: ' + user.email);
     if (form.telefone) lines.push('Telefone: ' + form.telefone);
     if (form.cep) lines.push('CEP: ' + form.cep);
     if (form.cidade) lines.push('Cidade: ' + form.cidade);

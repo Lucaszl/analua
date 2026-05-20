@@ -35,7 +35,19 @@ function App() {
   const [cart, setCart] = useStateA([]);
   const [cartOpen, setCartOpen] = useStateA(false);
   const [searchOpen, setSearchOpen] = useStateA(false);
+  const [authOpen, setAuthOpen] = useStateA(false);
+  const [authMode, setAuthMode] = useStateA('login');
+  const [userMenuOpen, setUserMenuOpen] = useStateA(false);
+  const [user, setUser] = useStateA(() => window.getCurrentUser ? window.getCurrentUser() : null);
   const [order, setOrder] = useStateA(null);
+
+  const openAuth = (mode = 'login') => { setAuthMode(mode); setAuthOpen(true); };
+  const handleLoggedIn = (u) => { setUser(u); setAuthOpen(false); };
+  const handleLogout = () => {
+    if (window.logoutUser) window.logoutUser();
+    setUser(null);
+    setUserMenuOpen(false);
+  };
 
   // Apply tokens when tweaks change
   useEffectA(() => {
@@ -45,11 +57,29 @@ function App() {
   }, [t.palette, t.displayFont, t.density, t.showMarquee]);
 
   const navigate = (r) => {
+    // Gate: checkout só se logado
+    if (r.name === 'checkout' && !user) {
+      setCartOpen(false);
+      setSearchOpen(false);
+      openAuth('login');
+      // Lembra que estava indo pro checkout
+      setRoute({name:'_pending_checkout'});
+      return;
+    }
     setRoute(r);
     setCartOpen(false);
     setSearchOpen(false);
+    setUserMenuOpen(false);
     window.scrollTo({top:0, behavior:'auto'});
   };
+
+  // Após login, se estava tentando ir pro checkout, vai
+  useEffectA(() => {
+    if (user && route.name === '_pending_checkout') {
+      setRoute({name:'checkout'});
+      window.scrollTo({top:0, behavior:'auto'});
+    }
+  }, [user, route.name]);
 
   const addToCart = (item) => {
     setCart(prev => {
@@ -89,7 +119,7 @@ function App() {
     case 'shop':     screen = <ShopScreen navigate={navigate} route={route} products={window.PRODUCTS}/>; break;
     case 'product':  screen = <ProductScreen navigate={navigate} route={route} products={window.PRODUCTS} onAddToCart={addToCart}/>; break;
     case 'about':    screen = <AboutScreen navigate={navigate}/>; break;
-    case 'checkout': screen = <CheckoutScreen navigate={navigate} items={cart} onSubmit={handleOrderSubmit}/>; break;
+    case 'checkout': screen = <CheckoutScreen navigate={navigate} items={cart} user={user} onSubmit={handleOrderSubmit}/>; break;
     case 'success':  screen = <SuccessScreen navigate={navigate} order={order}/>; break;
     default:         screen = <HomeScreen navigate={navigate} onAddToCart={addToCart} products={window.PRODUCTS} collections={window.COLLECTIONS}/>;
   }
@@ -97,8 +127,11 @@ function App() {
   return (
     <div className="app" data-screen-label={route.name}>
       <Header route={route} navigate={navigate} cartCount={cartCount}
+              user={user}
               onOpenCart={()=>setCartOpen(true)}
-              onOpenSearch={()=>setSearchOpen(true)}/>
+              onOpenSearch={()=>setSearchOpen(true)}
+              onOpenAuth={()=>openAuth('login')}
+              onOpenUserMenu={()=>setUserMenuOpen(true)}/>
       {screen}
       <Footer navigate={navigate}/>
       <CartDrawer
@@ -115,6 +148,20 @@ function App() {
         products={window.PRODUCTS}
         onClose={()=>setSearchOpen(false)}
         navigate={navigate}
+      />
+
+      <AuthModal
+        open={authOpen}
+        mode={authMode}
+        onClose={()=>{ setAuthOpen(false); if (route.name === '_pending_checkout') setRoute({name:'home'}); }}
+        onLoggedIn={handleLoggedIn}
+      />
+
+      <UserMenu
+        open={userMenuOpen}
+        user={user || {}}
+        onClose={()=>setUserMenuOpen(false)}
+        onLogout={handleLogout}
       />
 
       {/* Floating WhatsApp — abre conversa direta */}
