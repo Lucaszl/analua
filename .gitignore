@@ -1,0 +1,18 @@
+# Zips e empacotamentos
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*~
+
+# Node (caso adicione build no futuro)
+node_modules/
+.cache/
+.netlify/
